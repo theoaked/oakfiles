@@ -1,0 +1,44 @@
+<div class="search-results">
+  <div class="search-results__header">
+    <strong>{{ results|length }} result{% if results|length != 1 %}s{% endif %}</strong>
+    for "{{ query }}"
+    <button class="btn btn--ghost btn--sm" onclick="clearSearch()">✕ Clear</button>
+  </div>
+
+  {% if results %}
+  <table class="file-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th class="hide-mobile">Location</th>
+        <th class="hide-mobile">Size</th>
+        <th class="hide-mobile">Modified</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in results %}
+      <tr class="file-row {% if r.is_dir %}file-row--dir{% endif %}">
+        <td>
+          {% if r.is_dir %}
+            <button class="file-name file-name--dir btn btn--link"
+                    onclick="loadPath('{{ r.path }}')">
+              <span aria-hidden="true">📁</span>{{ r.name }}
+            </button>
+          {% else %}
+            <button class="file-name btn btn--link"
+                    onclick="previewOrDownload('{{ r.path }}', '{{ r.name }}')">
+              <span aria-hidden="true">📄</span>{{ r.name }}
+            </button>
+          {% endif %}
+        </td>
+        <td class="hide-mobile muted">{{ r.path }}</td>
+        <td class="hide-mobile">{% if not r.is_dir %}{{ r.size | filesizeformat }}{% endif %}</td>
+        <td class="hide-mobile">{{ r.mtime[:10] if r.mtime else '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="hint hint--center">No files found.</p>
+  {% endif %}
+</div>
