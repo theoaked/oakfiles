@@ -1,3 +1,6 @@
+# Dependências essenciais para testes
+# Usa environment markers para instalar a versão correta por plataforma
+
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 jinja2==3.1.4
