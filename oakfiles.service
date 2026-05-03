@@ -1,0 +1,16 @@
+[Unit]
+Description=OakFiles Local Network File Server
+After=network.target
+
+[Service]
+Type=simple
+User=oakfiles
+WorkingDirectory=/opt/oakfiles
+ExecStart=/opt/oakfiles/.venv/bin/python main.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/opt/oakfiles/logs/service.log
+StandardError=append:/opt/oakfiles/logs/service.log
+
+[Install]
+WantedBy=multi-user.target

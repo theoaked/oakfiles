@@ -216,3 +216,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# OakFiles
+oakfiles.db
+oakfiles.db-wal
+oakfiles.db-shm
+logs/*.log
+config.toml
+static/js/htmx.min.js

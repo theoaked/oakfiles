@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Files — OakFiles{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/preview.css">
+{% endblock %}
+
+{% block content %}
+<div class="browser" id="browser" data-is-admin="{{ 'true' if user.role == 'admin' else 'false' }}">
+
+  <!-- Toolbar -->
+  <div class="browser__toolbar">
+    <div id="breadcrumb" class="breadcrumb">
+      {% for root in roots %}
+        <button class="breadcrumb__root btn btn--ghost btn--sm"
+                data-path="{{ root }}"
+                onclick="loadPath(this.dataset.path)">{{ root }}</button>
+      {% endfor %}
+    </div>
+
+    <div class="browser__actions">
+      <div class="search-box">
+        <input id="search-input" class="field__input field__input--sm" type="search"
+               placeholder="Search files…" aria-label="Search">
+        <button class="btn btn--ghost btn--sm" onclick="runSearch()">Search</button>
+      </div>
+
+      {% if user.role == 'admin' %}
+      <label class="field--inline" style="font-size:.82rem; color:var(--color-muted); gap:.35rem; cursor:pointer; user-select:none;">
+        <input type="checkbox" id="show-hidden-toggle" onchange="onShowHiddenChange()">
+        Show hidden
+      </label>
+      <button class="btn btn--sm btn--secondary" id="new-folder-btn" onclick="showModal('modal-mkdir')" disabled>
+        New Folder
+      </button>
+      <button class="btn btn--sm btn--primary" id="upload-btn" onclick="document.getElementById('file-input').click()" disabled>
+        Upload
+      </button>
+      <input type="file" id="file-input" multiple style="display:none">
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Drop zone (admin only) -->
+  {% if user.role == 'admin' %}
+  <div id="drop-zone" class="drop-zone drop-zone--hidden" aria-hidden="true">
+    Drop files here to upload
+  </div>
+  {% endif %}
+
+  <!-- Upload progress -->
+  <div id="upload-progress" class="upload-progress" style="display:none"></div>
+
+  <!-- File list -->
+  <div id="file-list-container">
+    <p class="hint">Select a root directory above to start browsing.</p>
+  </div>
+
+  <!-- Search results -->
+  <div id="search-results-container" style="display:none"></div>
+
+</div>
+
+<!-- Modals -->
+{% include "partials/modals.html" %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/preview.js" defer></script>
+{% endblock %}

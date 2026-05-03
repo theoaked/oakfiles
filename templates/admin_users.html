@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Users — OakFiles{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+  <div class="admin-page__header">
+    <h1>User Management</h1>
+    <button class="btn btn--primary" onclick="showModal('modal-create-user')">Add User</button>
+  </div>
+
+  <div id="users-table-container">
+    <p class="hint">Loading…</p>
+  </div>
+</div>
+
+<!-- Create User Modal -->
+<div id="modal-create-user" class="modal" role="dialog" hidden>
+  <div class="modal__backdrop" onclick="closeModal('modal-create-user')"></div>
+  <div class="modal__box">
+    <h2 class="modal__title">Add User</h2>
+    <label class="field">
+      <span class="field__label">Username</span>
+      <input id="new-username" class="field__input" type="text" autocomplete="off">
+    </label>
+    <label class="field">
+      <span class="field__label">Password</span>
+      <input id="new-password" class="field__input" type="password" autocomplete="new-password">
+    </label>
+    <label class="field">
+      <span class="field__label">Role</span>
+      <select id="new-role" class="field__input">
+        <option value="readonly">Read Only</option>
+        <option value="admin">Admin</option>
+      </select>
+    </label>
+    <div class="modal__actions">
+      <button class="btn btn--ghost" onclick="closeModal('modal-create-user')">Cancel</button>
+      <button class="btn btn--primary" onclick="createUser()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit User Modal -->
+<div id="modal-edit-user" class="modal" role="dialog" hidden>
+  <div class="modal__backdrop" onclick="closeModal('modal-edit-user')"></div>
+  <div class="modal__box">
+    <h2 class="modal__title">Edit User</h2>
+    <input id="edit-user-id" type="hidden">
+    <label class="field">
+      <span class="field__label">Username</span>
+      <input id="edit-username" class="field__input" type="text">
+    </label>
+    <label class="field">
+      <span class="field__label">New Password <span class="muted">(leave blank to keep)</span></span>
+      <input id="edit-password" class="field__input" type="password" autocomplete="new-password">
+    </label>
+    <label class="field">
+      <span class="field__label">Role</span>
+      <select id="edit-role" class="field__input">
+        <option value="readonly">Read Only</option>
+        <option value="admin">Admin</option>
+      </select>
+    </label>
+    <div class="modal__actions">
+      <button class="btn btn--ghost" onclick="closeModal('modal-edit-user')">Cancel</button>
+      <button class="btn btn--primary" onclick="saveUser()">Save</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+async function loadUsers() {
+  const res = await fetch('/api/users', {headers: {'X-CSRF-Token': CSRF}});
+  const users = await res.json();
+  const c = document.getElementById('users-table-container');
+  if (!users.length) { c.innerHTML = '<p class="hint">No users yet.</p>'; return; }
+  c.innerHTML = `
+    <table class="file-table">
+      <thead><tr><th>Username</th><th>Role</th><th>Created</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>${users.map(u => `
+        <tr>
+          <td>${escHtml(u.username)}</td>
+          <td><span class="badge badge--${u.role}">${u.role}</span></td>
+          <td class="hide-mobile">${u.created_at.slice(0,10)}</td>
+          <td>${u.is_active ? '<span class="badge badge--ok">Active</span>' : '<span class="badge badge--off">Disabled</span>'}</td>
+          <td>
+            <button class="btn btn--ghost btn--xs" onclick="editUser(${u.id},'${escHtml(u.username)}','${u.role}')">Edit</button>
+            <button class="btn btn--danger btn--xs" onclick="deleteUser(${u.id},'${escHtml(u.username)}')">Delete</button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function escHtml(s) { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function createUser() {
+  const username = document.getElementById('new-username').value.trim();
+  const password = document.getElementById('new-password').value;
+  const role = document.getElementById('new-role').value;
+  const res = await fetch('/api/users', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': CSRF},
+    body: JSON.stringify({username, password, role})
+  });
+  if (!res.ok) { const e = await res.json(); alert(e.detail || 'Error'); return; }
+  closeModal('modal-create-user');
+  loadUsers();
+}
+
+function editUser(id, username, role) {
+  document.getElementById('edit-user-id').value = id;
+  document.getElementById('edit-username').value = username;
+  document.getElementById('edit-role').value = role;
+  document.getElementById('edit-password').value = '';
+  showModal('modal-edit-user');
+}
+
+async function saveUser() {
+  const id = document.getElementById('edit-user-id').value;
+  const body = {
+    username: document.getElementById('edit-username').value.trim(),
+    role: document.getElementById('edit-role').value,
+  };
+  const pw = document.getElementById('edit-password').value;
+  if (pw) body.password = pw;
+  const res = await fetch(`/api/users/${id}`, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': CSRF},
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) { const e = await res.json(); alert(e.detail || 'Error'); return; }
+  closeModal('modal-edit-user');
+  loadUsers();
+}
+
+async function deleteUser(id, username) {
+  if (!confirm(`Delete user "${username}"? This cannot be undone.`)) return;
+  const res = await fetch(`/api/users/${id}`, {method: 'DELETE', headers: {'X-CSRF-Token': CSRF}});
+  if (!res.ok) { const e = await res.json(); alert(e.detail || 'Error'); return; }
+  loadUsers();
+}
+
+function showModal(id) { document.getElementById(id).hidden = false; }
+function closeModal(id) { document.getElementById(id).hidden = true; }
+
+loadUsers();
+</script>
+{% endblock %}

@@ -1,0 +1,66 @@
+<div class="file-list__header breadcrumb" id="breadcrumb-inner">
+  {% for segment in breadcrumbs %}
+    {% if not loop.last %}
+      <button class="breadcrumb__item btn btn--ghost btn--sm"
+              onclick="loadPath('{{ segment.path }}')">{{ segment.name }}</button>
+      <span class="breadcrumb__sep">/</span>
+    {% else %}
+      <span class="breadcrumb__item breadcrumb__item--current">{{ segment.name }}</span>
+    {% endif %}
+  {% endfor %}
+</div>
+
+{% if entries %}
+<table class="file-table" role="grid">
+  <thead>
+    <tr>
+      <th class="file-table__name">Name</th>
+      <th class="file-table__size hide-mobile">Size</th>
+      <th class="file-table__mtime hide-mobile">Modified</th>
+      {% if is_admin %}<th class="file-table__actions">Actions</th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for entry in entries %}
+    <tr class="file-row {% if entry.is_dir %}file-row--dir{% endif %}"
+        data-path="{{ entry.path }}"
+        data-name="{{ entry.name }}"
+        data-is-dir="{{ 'true' if entry.is_dir else 'false' }}">
+      <td class="file-table__name">
+        {% if entry.is_dir %}
+          <button class="file-name file-name--dir btn btn--link"
+                  onclick="loadPath('{{ entry.path }}')">
+            <span class="icon icon--folder" aria-hidden="true">📁</span>{{ entry.name }}
+          </button>
+        {% else %}
+          <button class="file-name btn btn--link"
+                  onclick="previewOrDownload('{{ entry.path }}', '{{ entry.name }}')">
+            <span class="icon icon--file" aria-hidden="true">📄</span>{{ entry.name }}
+          </button>
+        {% endif %}
+      </td>
+      <td class="file-table__size hide-mobile">
+        {% if not entry.is_dir %}{{ entry.size | filesizeformat }}{% endif %}
+      </td>
+      <td class="file-table__mtime hide-mobile">{{ entry.mtime[:10] if entry.mtime else '' }}</td>
+      {% if is_admin %}
+      <td class="file-table__actions">
+        <button class="btn btn--ghost btn--xs"
+                onclick="showRename('{{ entry.path }}', '{{ entry.name }}')">Rename</button>
+        <button class="btn btn--ghost btn--xs"
+                onclick="showMove(['{{ entry.path }}'], '{{ entry.name }}')">Move</button>
+        {% if entry.is_dir %}
+        <button class="btn btn--ghost btn--xs"
+                onclick="downloadZip('{{ entry.path }}', '{{ entry.name }}')">ZIP</button>
+        {% endif %}
+        <button class="btn btn--danger btn--xs"
+                onclick="showDelete(['{{ entry.path }}'], '{{ entry.name }}')">Delete</button>
+      </td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="hint hint--center">This folder is empty.</p>
+{% endif %}

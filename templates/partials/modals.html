@@ -1,0 +1,89 @@
+<!-- Rename Modal -->
+<div id="modal-rename" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-rename-title" hidden>
+  <div class="modal__backdrop" onclick="closeModal('modal-rename')"></div>
+  <div class="modal__box">
+    <h2 class="modal__title" id="modal-rename-title">Rename</h2>
+    <label class="field">
+      <span class="field__label">New name</span>
+      <input id="rename-input" class="field__input" type="text" autocomplete="off">
+    </label>
+    <div class="modal__actions">
+      <button class="btn btn--ghost" onclick="closeModal('modal-rename')">Cancel</button>
+      <button class="btn btn--primary" onclick="submitRename()">Rename</button>
+    </div>
+  </div>
+</div>
+
+<!-- Move Modal -->
+<div id="modal-move" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-move-title" hidden>
+  <div class="modal__backdrop" onclick="closeModal('modal-move')"></div>
+  <div class="modal__box">
+    <h2 class="modal__title" id="modal-move-title">Move</h2>
+    <label class="field">
+      <span class="field__label">Destination path</span>
+      <input id="move-dest-input" class="field__input" type="text" autocomplete="off"
+             placeholder="Paste or type the full destination path">
+    </label>
+    <div class="modal__actions">
+      <button class="btn btn--ghost" onclick="closeModal('modal-move')">Cancel</button>
+      <button class="btn btn--primary" onclick="submitMove()">Move</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="modal-delete" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-delete-title" hidden>
+  <div class="modal__backdrop" onclick="closeModal('modal-delete')"></div>
+  <div class="modal__box">
+    <h2 class="modal__title" id="modal-delete-title">Confirm Delete</h2>
+    <p id="delete-confirm-msg" class="modal__body"></p>
+    <div class="modal__actions">
+      <button class="btn btn--ghost" onclick="closeModal('modal-delete')">Cancel</button>
+      <button class="btn btn--danger" onclick="submitDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Folder Modal -->
+<div id="modal-mkdir" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-mkdir-title" hidden>
+  <div class="modal__backdrop" onclick="closeModal('modal-mkdir')"></div>
+  <div class="modal__box">
+    <h2 class="modal__title" id="modal-mkdir-title">New Folder</h2>
+    <label class="field">
+      <span class="field__label">Folder name</span>
+      <input id="mkdir-input" class="field__input" type="text" autocomplete="off">
+    </label>
+    <div class="modal__actions">
+      <button class="btn btn--ghost" onclick="closeModal('modal-mkdir')">Cancel</button>
+      <button class="btn btn--primary" onclick="submitMkdir()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Upload Conflict Modal -->
+<div id="modal-conflict" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-conflict-title" hidden>
+  <div class="modal__backdrop"></div>
+  <div class="modal__box">
+    <h2 class="modal__title" id="modal-conflict-title">File Already Exists</h2>
+    <p id="conflict-msg" class="modal__body"></p>
+    <div class="modal__actions">
+      <button class="btn btn--ghost" onclick="resolveConflict('keep')">Keep Both</button>
+      <button class="btn btn--danger" onclick="resolveConflict('overwrite')">Overwrite</button>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="modal-preview" class="modal modal--preview" role="dialog" aria-modal="true" hidden>
+  <div class="modal__backdrop" onclick="closeModal('modal-preview')"></div>
+  <div class="modal__box modal__box--preview">
+    <div class="modal__preview-header">
+      <span id="preview-filename" class="modal__preview-name"></span>
+      <div class="modal__preview-actions">
+        <a id="preview-download-link" href="#" class="btn btn--ghost btn--sm" download>Download</a>
+        <button class="btn btn--ghost btn--sm" onclick="closeModal('modal-preview')">✕</button>
+      </div>
+    </div>
+    <div id="preview-content" class="modal__preview-content"></div>
+  </div>
+</div>
