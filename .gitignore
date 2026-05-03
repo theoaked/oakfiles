@@ -218,6 +218,7 @@ __marimo__/
 .streamlit/secrets.toml
 
 # OakFiles
+.claude/
 oakfiles.db
 oakfiles.db-wal
 oakfiles.db-shm
