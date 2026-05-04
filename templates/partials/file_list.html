@@ -35,7 +35,7 @@
         {% else %}
           <button class="file-name btn btn--link"
                   onclick="previewOrDownload('{{ entry.path }}', '{{ entry.name }}')">
-            <span class="icon icon--file" aria-hidden="true">📄</span>{{ entry.name }}
+            {% with name=entry.name, path=entry.path %}{% include 'partials/_thumb.html' %}{% endwith %}{{ entry.name }}
           </button>
         {% endif %}
       </td>

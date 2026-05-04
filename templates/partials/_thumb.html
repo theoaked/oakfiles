@@ -1,0 +1,13 @@
+{# Renders a thumbnail for media files, or an icon otherwise. #}
+{%- set _ext = name.rsplit('.', 1)[1].lower() if '.' in name else '' -%}
+{%- set _img_exts = ['jpg','jpeg','png','gif','webp','bmp','svg'] -%}
+{%- set _vid_exts = ['mp4','webm','ogg','mov','m4v'] -%}
+{%- if _ext in _img_exts -%}
+  <img class="file-thumb" loading="lazy" decoding="async"
+       src="/api/download?path={{ path | urlencode }}" alt="">
+{%- elif _ext in _vid_exts -%}
+  <video class="file-thumb" preload="metadata" muted playsinline
+         src="/api/download?path={{ path | urlencode }}#t=0.1"></video>
+{%- else -%}
+  <span class="icon icon--file" aria-hidden="true">📄</span>
+{%- endif -%}

@@ -223,6 +223,15 @@ select.field__input { appearance: auto; }
 }
 .file-name--dir { font-weight: 500; }
 .icon { font-style: normal; flex-shrink: 0; }
+.file-thumb {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+}
 
 /* ── Search Results ────────────────────────────────────────── */
 .search-results__header { display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem; flex-wrap: wrap; }
