@@ -65,6 +65,22 @@ function jsAttr(val) {
   );
 }
 
+const THUMB_IMG_EXTS = new Set(['jpg','jpeg','png','gif','webp','bmp','svg']);
+const THUMB_VID_EXTS = new Set(['mp4','webm','ogg','mov','m4v']);
+
+function mediaThumb(path, name) {
+  const dot = name.lastIndexOf('.');
+  const ext = dot >= 0 ? name.slice(dot + 1).toLowerCase() : '';
+  const url = '/api/download?path=' + encodeURIComponent(path);
+  if (THUMB_IMG_EXTS.has(ext)) {
+    return `<img class="file-thumb" loading="lazy" decoding="async" src="${url}" alt="">`;
+  }
+  if (THUMB_VID_EXTS.has(ext)) {
+    return `<video class="file-thumb" preload="metadata" muted playsinline src="${url}#t=0.1"></video>`;
+  }
+  return '<span class="icon icon--file" aria-hidden="true">📄</span>';
+}
+
 function formatSize(bytes) {
   if (bytes == null) return '';
   if (bytes < 1024) return bytes + ' B';
@@ -131,7 +147,7 @@ function renderFileList(data) {
       const safeName = escHtml(e.name);
       const nameCell = e.is_dir
         ? `<button class="file-name file-name--dir btn btn--link" onclick="loadPath(${jsAttr(e.path)})"><span aria-hidden="true">📁</span>${safeName}</button>`
-        : `<button class="file-name btn btn--link" onclick="previewOrDownload(${jsAttr(e.path)},${jsAttr(e.name)})"><span aria-hidden="true">📄</span>${safeName}</button>`;
+        : `<button class="file-name btn btn--link" onclick="previewOrDownload(${jsAttr(e.path)},${jsAttr(e.name)})">${mediaThumb(e.path, e.name)}${safeName}</button>`;
 
       let actions = '';
       if (isAdmin) {
@@ -193,7 +209,7 @@ function renderSearchResults(data) {
     const safePath = escHtml(r.path);
     const nameCell = r.is_dir
       ? `<button class="file-name file-name--dir btn btn--link" onclick="loadPath(${jsAttr(r.path)})"><span>📁</span>${safeName}</button>`
-      : `<button class="file-name btn btn--link" onclick="previewOrDownload(${jsAttr(r.path)},${jsAttr(r.name)})"><span>📄</span>${safeName}</button>`;
+      : `<button class="file-name btn btn--link" onclick="previewOrDownload(${jsAttr(r.path)},${jsAttr(r.name)})">${mediaThumb(r.path, r.name)}${safeName}</button>`;
     return `<tr><td>${nameCell}</td><td class="hide-mobile muted" style="font-size:.8rem">${safePath}</td>
       <td class="hide-mobile">${r.is_dir ? '' : formatSize(r.size)}</td>
       <td class="hide-mobile">${r.mtime ? r.mtime.slice(0, 10) : ''}</td></tr>`;
