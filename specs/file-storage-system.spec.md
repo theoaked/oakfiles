@@ -109,6 +109,7 @@ The application must reject any request where the resolved absolute path does no
 
 - Displays current directory contents: folders listed before files, both sorted alphabetically (case-insensitive)
 - Each entry shows: name, type (file/folder), size (files only), last modified date
+- Image files (`jpg`, `jpeg`, `png`, `gif`, `webp`, `bmp`, `svg`) and video files (`mp4`, `webm`, `ogg`, `mov`, `m4v`) display an inline thumbnail in place of the generic file icon, to ease visual selection. Thumbnails are rendered client-side via lazy-loaded `<img>` / `<video preload="metadata">` pointing at `/api/download` — no server-side thumbnail generation
 - Breadcrumb navigation showing the full path from the configured root, each segment clickable
 - Clicking a folder navigates into it
 - Clicking a file either previews it (if supported) or downloads it
@@ -365,7 +366,7 @@ bcrypt_cost = 12
 ## 12. Future Considerations
 
 - **HTTPS / TLS**: Add support via `mkcert`-generated certificates. The server will serve the CA certificate at a well-known URL for easy device-side installation. A setup wizard in the admin panel will guide the process.
-- **Thumbnail generation**: Image and video thumbnails in the file browser grid view
+- **Server-side thumbnail generation**: Pre-computed, cached thumbnails (e.g. via Pillow / ffmpeg) to replace the current client-side full-file fetch for media previews
 - **Configurable per-user home directories**: Restrict each user to a specific subdirectory
 - **Public share links**: Generate time-limited, unauthenticated download links for specific files
 - **Storage quotas**: Per-user upload limits
