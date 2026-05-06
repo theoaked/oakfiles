@@ -13,6 +13,22 @@ _LOCKED_WINDOWS: list[Path] = [
     Path("C:/Program Files"),
     Path("C:/Program Files (x86)"),
     Path("C:/ProgramData"),
+    Path("D:/Windows"),
+    Path("D:/Program Files"),
+    Path("D:/Program Files (x86)"),
+    Path("D:/ProgramData"),
+    Path("E:/Windows"),
+    Path("E:/Program Files"),
+    Path("E:/Program Files (x86)"),
+    Path("E:/ProgramData"),
+    Path("F:/Windows"),
+    Path("F:/Program Files"),
+    Path("F:/Program Files (x86)"),
+    Path("F:/ProgramData"),
+    Path("G:/Windows"),
+    Path("G:/Program Files"),
+    Path("G:/Program Files (x86)"),
+    Path("G:/ProgramData")
 ]
 
 _LOCKED_LINUX: list[Path] = [
