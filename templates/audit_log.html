@@ -2,23 +2,25 @@
 {% block title %}Audit Log — OakFiles{% endblock %}
 
 {% block content %}
-<div class="admin-page">
-  <h1>Audit Log</h1>
+<div class="page">
+  <div class="page__header">
+    <h1>Audit log</h1>
+  </div>
 
   <form class="audit-filters" id="audit-filter-form" onsubmit="return false;">
-    <label class="field field--inline">
+    <label class="field">
       <span class="field__label">From</span>
       <input id="filter-from" class="field__input field__input--sm" type="date">
     </label>
-    <label class="field field--inline">
+    <label class="field">
       <span class="field__label">To</span>
       <input id="filter-to" class="field__input field__input--sm" type="date">
     </label>
-    <label class="field field--inline">
+    <label class="field">
       <span class="field__label">Event</span>
       <input id="filter-event" class="field__input field__input--sm" type="text" placeholder="e.g. login_success">
     </label>
-    <label class="field field--inline">
+    <label class="field">
       <span class="field__label">User</span>
       <input id="filter-user" class="field__input field__input--sm" type="text">
     </label>
@@ -26,26 +28,22 @@
     <button class="btn btn--ghost btn--sm" onclick="clearFilters()">Clear</button>
   </form>
 
-  <div id="audit-container"><p class="hint">Loading…</p></div>
+  <div id="audit-container" class="card"><p class="hint">Loading…</p></div>
   <div id="audit-pagination" class="pagination"></div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
-let _currentOffset = 0;
 const PAGE = 100;
 
-function escHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
 function clearFilters() {
-  ['filter-from','filter-to','filter-event','filter-user'].forEach(id => document.getElementById(id).value = '');
+  ['filter-from', 'filter-to', 'filter-event', 'filter-user'].forEach(id =>
+    document.getElementById(id).value = '');
   loadAudit(0);
 }
 
-async function loadAudit(offset=0) {
-  _currentOffset = offset;
+async function loadAudit(offset = 0) {
   const params = new URLSearchParams();
   const from = document.getElementById('filter-from').value;
   const to = document.getElementById('filter-to').value;
@@ -58,24 +56,30 @@ async function loadAudit(offset=0) {
   params.set('limit', PAGE);
   params.set('offset', offset);
 
-  const res = await fetch('/api/audit?' + params, {headers: {'X-CSRF-Token': CSRF}});
-  const data = await res.json();
   const c = document.getElementById('audit-container');
+  const pg = document.getElementById('audit-pagination');
+  let data;
+  try {
+    data = await apiJson('GET', '/api/audit?' + params);
+  } catch (e) {
+    c.innerHTML = `<p class="alert alert--error">${escHtml(e.message)}</p>`;
+    return;
+  }
 
   if (!data.entries.length) {
     c.innerHTML = '<p class="hint hint--center">No entries found.</p>';
-    document.getElementById('audit-pagination').innerHTML = '';
+    pg.innerHTML = '';
     return;
   }
 
   c.innerHTML = `
-    <table class="file-table audit-table">
+    <table class="data-table">
       <thead><tr>
         <th>Time (UTC)</th><th>User</th><th>Event</th><th>IP</th><th class="hide-mobile">Detail</th>
       </tr></thead>
       <tbody>${data.entries.map(e => `
         <tr>
-          <td class="mono">${escHtml(e.ts.replace('T',' ').replace('Z',''))}</td>
+          <td class="mono">${escHtml(e.ts.replace('T', ' ').replace('Z', ''))}</td>
           <td>${escHtml(e.username)}</td>
           <td><code class="event-tag">${escHtml(e.event)}</code></td>
           <td class="mono">${escHtml(e.ip_address || '')}</td>
@@ -84,15 +88,14 @@ async function loadAudit(offset=0) {
       </tbody>
     </table>`;
 
-  const pg = document.getElementById('audit-pagination');
   const totalPages = Math.ceil(data.total / PAGE);
   const curPage = Math.floor(offset / PAGE);
   pg.innerHTML = `
-    <span class="pagination__info">Showing ${offset+1}–${Math.min(offset+PAGE, data.total)} of ${data.total}</span>
-    ${curPage > 0 ? `<button class="btn btn--ghost btn--sm" onclick="loadAudit(${(curPage-1)*PAGE})">← Prev</button>` : ''}
-    ${curPage < totalPages-1 ? `<button class="btn btn--ghost btn--sm" onclick="loadAudit(${(curPage+1)*PAGE})">Next →</button>` : ''}`;
+    <span class="pagination__info">Showing ${offset + 1}–${Math.min(offset + PAGE, data.total)} of ${data.total}</span>
+    ${curPage > 0 ? `<button class="btn btn--ghost btn--sm" onclick="loadAudit(${(curPage - 1) * PAGE})">← Prev</button>` : ''}
+    ${curPage < totalPages - 1 ? `<button class="btn btn--ghost btn--sm" onclick="loadAudit(${(curPage + 1) * PAGE})">Next →</button>` : ''}`;
 }
 
-loadAudit(0);
+window.addEventListener('DOMContentLoaded', () => loadAudit(0));
 </script>
 {% endblock %}

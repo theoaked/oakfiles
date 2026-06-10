@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from fastapi import APIRouter, Request, HTTPException
@@ -54,6 +55,52 @@ async def search(request: Request, q: str, path: str, show_hidden: bool = False)
     return {"query": q, "results": [_search_dict(r) for r in results]}
 
 
+_RANGE_RE = re.compile(r"^bytes=(\d*)-(\d*)$")
+
+
+def parse_range_header(header: str | None, file_size: int):
+    """Parse a single HTTP Range header.
+
+    Returns (start, end) inclusive byte offsets, None when the full file
+    should be served (no/invalid header), or the string "unsatisfiable".
+    Multi-range requests are not supported and fall back to the full file.
+    """
+    if not header:
+        return None
+    m = _RANGE_RE.match(header.strip())
+    if not m:
+        return None
+    start_s, end_s = m.groups()
+    if not start_s and not end_s:
+        return None
+    if not start_s:
+        # Suffix range: last N bytes
+        length = int(end_s)
+        if length <= 0 or file_size == 0:
+            return "unsatisfiable"
+        start = max(file_size - length, 0)
+        end = file_size - 1
+    else:
+        start = int(start_s)
+        end = int(end_s) if end_s else file_size - 1
+        end = min(end, file_size - 1)
+    if start >= file_size or start > end:
+        return "unsatisfiable"
+    return start, end
+
+
+async def _range_stream(path: Path, start: int, end: int, chunk_size: int = 1024 * 1024):
+    async with aiofiles.open(path, "rb") as f:
+        await f.seek(start)
+        remaining = end - start + 1
+        while remaining > 0:
+            data = await f.read(min(chunk_size, remaining))
+            if not data:
+                break
+            remaining -= len(data)
+            yield data
+
+
 @router.get("/download")
 async def download(request: Request, path: str):
     config = request.app.state.config
@@ -65,12 +112,44 @@ async def download(request: Request, path: str):
     if not safe.is_file():
         raise HTTPException(status_code=400, detail="Path is not a file")
 
-    user = request.state.user
-    ip = _client_ip(request)
-    log_event(db, user["username"], ip, "file_downloaded", {"path": str(safe), "size": safe.stat().st_size})
+    size = safe.stat().st_size
+    rng = parse_range_header(request.headers.get("range"), size)
+
+    if rng == "unsatisfiable":
+        raise HTTPException(
+            status_code=416,
+            detail="Range not satisfiable",
+            headers={"Content-Range": f"bytes */{size}"},
+        )
+
+    # Log full downloads and the first chunk of a streamed playback,
+    # not every subsequent seek/range request for the same file.
+    if rng is None or rng[0] == 0:
+        user = request.state.user
+        ip = _client_ip(request)
+        log_event(db, user["username"], ip, "file_downloaded", {"path": str(safe), "size": size})
 
     mime = get_file_mimetype(safe)
-    return FileResponse(path=str(safe), media_type=mime, filename=safe.name)
+    if rng is None:
+        return FileResponse(
+            path=str(safe),
+            media_type=mime,
+            filename=safe.name,
+            headers={"Accept-Ranges": "bytes"},
+        )
+
+    start, end = rng
+    return StreamingResponse(
+        _range_stream(safe, start, end),
+        status_code=206,
+        media_type=mime,
+        headers={
+            "Accept-Ranges": "bytes",
+            "Content-Range": f"bytes {start}-{end}/{size}",
+            "Content-Length": str(end - start + 1),
+            "Content-Disposition": f'attachment; filename="{safe.name}"',
+        },
+    )
 
 
 @router.get("/zip")

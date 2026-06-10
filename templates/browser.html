@@ -5,60 +5,113 @@
 <link rel="stylesheet" href="/static/css/preview.css">
 {% endblock %}
 
+{% block topbar %}
+<div class="topbar__search" id="search-box">
+  <svg><use href="#i-search"/></svg>
+  <input id="search-input" type="search" placeholder="Search in current folder…"
+         aria-label="Search" autocomplete="off">
+  <button class="icon-btn icon-btn--sm search-clear" onclick="clearSearch()" aria-label="Clear search">
+    <svg><use href="#i-x"/></svg>
+  </button>
+</div>
+{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar__section">
+  <div class="sidebar__title">Locations</div>
+  {% for root in roots %}
+  <button class="sidebar__link root-link" data-path="{{ root }}" title="{{ root }}">
+    <svg><use href="#i-hd"/></svg>
+    <span>{{ root.rstrip('\\/').replace('\\', '/').split('/')[-1] or root }}</span>
+  </button>
+  {% endfor %}
+</div>
+
+{% if user.role == 'admin' %}
+<div class="sidebar__section">
+  <div class="sidebar__title">Actions</div>
+  <button class="sidebar__link" id="upload-btn" onclick="document.getElementById('file-input').click()" disabled>
+    <svg><use href="#i-upload"/></svg><span>Upload files</span>
+  </button>
+  <button class="sidebar__link" id="new-folder-btn" onclick="showModal('modal-mkdir')" disabled>
+    <svg><use href="#i-folder-plus"/></svg><span>New folder</span>
+  </button>
+  <input type="file" id="file-input" multiple style="display:none">
+  <label class="sidebar__toggle">
+    <input type="checkbox" id="show-hidden-toggle" onchange="onShowHiddenChange()">
+    Show hidden files
+  </label>
+</div>
+{% endif %}
+{% endblock %}
+
 {% block content %}
-<div class="browser" id="browser" data-is-admin="{{ 'true' if user.role == 'admin' else 'false' }}">
+<div class="browser" id="browser"
+     data-is-admin="{{ 'true' if user.role == 'admin' else 'false' }}"
+     data-zip-enabled="{{ 'true' if zip_enabled else 'false' }}">
 
-  <!-- Toolbar -->
-  <div class="browser__toolbar">
-    <div id="breadcrumb" class="breadcrumb">
-      {% for root in roots %}
-        <button class="breadcrumb__root btn btn--ghost btn--sm"
-                data-path="{{ root }}"
-                onclick="loadPath(this.dataset.path)">{{ root }}</button>
-      {% endfor %}
-    </div>
-
-    <div class="browser__actions">
-      <div class="search-box">
-        <input id="search-input" class="field__input field__input--sm" type="search"
-               placeholder="Search files…" aria-label="Search">
-        <button class="btn btn--ghost btn--sm" onclick="runSearch()">Search</button>
-      </div>
-
-      {% if user.role == 'admin' %}
-      <label class="field--inline" style="font-size:.82rem; color:var(--color-muted); gap:.35rem; cursor:pointer; user-select:none;">
-        <input type="checkbox" id="show-hidden-toggle" onchange="onShowHiddenChange()">
-        Show hidden
-      </label>
-      <button class="btn btn--sm btn--secondary" id="new-folder-btn" onclick="showModal('modal-mkdir')" disabled>
-        New Folder
+  <div class="content-head">
+    <nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb"></nav>
+    <div class="view-toggle" id="view-toggle" role="group" aria-label="View mode">
+      <button id="view-grid-btn" onclick="setView('grid')" aria-label="Grid view" title="Grid view">
+        <svg><use href="#i-grid"/></svg>
       </button>
-      <button class="btn btn--sm btn--primary" id="upload-btn" onclick="document.getElementById('file-input').click()" disabled>
-        Upload
+      <button id="view-list-btn" onclick="setView('list')" aria-label="List view" title="List view">
+        <svg><use href="#i-list"/></svg>
       </button>
-      <input type="file" id="file-input" multiple style="display:none">
-      {% endif %}
     </div>
   </div>
 
-  <!-- Drop zone (admin only) -->
+  <div id="file-area">
+    <div class="empty">
+      <svg><use href="#i-hd"/></svg>
+      <strong>Welcome to OakFiles</strong>
+      <p>Pick a location in the sidebar to start browsing.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Selection action bar -->
+<div class="sel-bar" id="sel-bar">
+  <span class="sel-bar__count" id="sel-count"></span>
+  <button class="btn btn--ghost btn--sm" id="sel-download" onclick="selectionDownload()">
+    <svg><use href="#i-download"/></svg>Download
+  </button>
   {% if user.role == 'admin' %}
-  <div id="drop-zone" class="drop-zone drop-zone--hidden" aria-hidden="true">
-    Drop files here to upload
-  </div>
+  <button class="btn btn--ghost btn--sm" onclick="showMoveSelection()">
+    <svg><use href="#i-move"/></svg>Move
+  </button>
+  <button class="btn btn--danger btn--sm" onclick="showDeleteSelection()">
+    <svg><use href="#i-trash"/></svg>Delete
+  </button>
   {% endif %}
+  <button class="icon-btn icon-btn--sm" onclick="clearSelection()" aria-label="Clear selection">
+    <svg><use href="#i-x"/></svg>
+  </button>
+</div>
 
-  <!-- Upload progress -->
-  <div id="upload-progress" class="upload-progress" style="display:none"></div>
+<!-- Context menu (populated by JS) -->
+<div class="ctx-menu" id="ctx-menu" hidden></div>
 
-  <!-- File list -->
-  <div id="file-list-container">
-    <p class="hint">Select a root directory above to start browsing.</p>
+<!-- Drag-and-drop overlay (admin only) -->
+{% if user.role == 'admin' %}
+<div id="drop-overlay" class="drop-overlay" hidden>
+  <div class="drop-overlay__box">
+    <svg><use href="#i-upload"/></svg>
+    Drop files to upload here
   </div>
+</div>
+{% endif %}
 
-  <!-- Search results -->
-  <div id="search-results-container" style="display:none"></div>
-
+<!-- Upload progress panel -->
+<div id="upload-panel" class="upload-panel" hidden>
+  <div class="upload-panel__head">
+    <span id="upload-panel-title">Uploading…</span>
+    <button class="icon-btn icon-btn--sm" onclick="hideUploadPanel()" aria-label="Close">
+      <svg><use href="#i-x"/></svg>
+    </button>
+  </div>
+  <div class="upload-panel__list" id="upload-panel-list"></div>
 </div>
 
 <!-- Modals -->
