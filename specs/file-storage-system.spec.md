@@ -107,12 +107,19 @@ The application must reject any request where the resolved absolute path does no
 
 ### 6.2 File Browser
 
-- Displays current directory contents: folders listed before files, both sorted alphabetically (case-insensitive)
+- App shell layout: persistent sidebar (configured root locations, quick actions, admin toggles) + main content area. On screens ≤ 860px the sidebar collapses into an off-canvas drawer opened by a hamburger button
+- Two view modes, toggleable and persisted in `localStorage`: **grid** (cards with large thumbnails/icons) and **list** (rows with name, size, modified date). List view headers are clickable for sorting by name, size, or modified date (folders always listed first)
+- Default sort: folders before files, both alphabetical (case-insensitive, numeric-aware)
 - Each entry shows: name, type (file/folder), size (files only), last modified date
-- Image files (`jpg`, `jpeg`, `png`, `gif`, `webp`, `bmp`, `svg`) and video files (`mp4`, `webm`, `ogg`, `mov`, `m4v`) display an inline thumbnail in place of the generic file icon, to ease visual selection. Thumbnails are rendered client-side via lazy-loaded `<img>` / `<video preload="metadata">` pointing at `/api/download` — no server-side thumbnail generation
-- Breadcrumb navigation showing the full path from the configured root, each segment clickable
+- File entries display a colored type icon (image, video, audio, PDF, archive, code, text, generic) rendered from an inline SVG sprite
+- Image files (`jpg`, `jpeg`, `png`, `gif`, `webp`, `bmp`, `svg`) and video files (`mp4`, `webm`, `ogg`, `mov`, `m4v`) display an inline thumbnail in place of the type icon, to ease visual selection. Thumbnails are rendered client-side via lazy-loaded `<img>` / `<video preload="metadata">` pointing at `/api/download` — no server-side thumbnail generation. Video thumbnails start loading only when scrolled into the viewport (IntersectionObserver), and all in-flight media loads are aborted when navigating to another folder, so folders full of videos cannot exhaust the browser's per-host connection pool
+- Breadcrumb navigation showing the path from the configured root (segments above the root are not navigable), each segment clickable
 - Clicking a folder navigates into it
 - Clicking a file either previews it (if supported) or downloads it
+- If exactly one root is configured, it is loaded automatically on page open
+- **Context menu**: right-click (or the per-item "⋯" button, which also serves touch devices) opens a menu with Open/Preview, Download (files), Download as ZIP (folders, when enabled) for all users, plus Rename, Move, and Delete for admins
+- **Multi-select**: items can be selected via checkbox, Ctrl/Cmd+click, or Shift+click (range). A floating action bar shows the selection count with Download (single item), Move, and Delete (admin) batch actions
+- Operation feedback (success/error of rename, move, delete, upload, etc.) is shown via toast notifications instead of blocking `alert()` dialogs
 
 **Hidden file filtering**
 
@@ -140,7 +147,7 @@ Admin users see a "Show hidden" checkbox in the toolbar. Checking it immediately
 - Same name validation as folder creation
 
 **Move**
-- Select one or more items, then choose a destination folder via a folder picker dialog
+- Select one or more items, then choose a destination folder via a folder picker dialog (navigable mini-browser scoped to the configured roots; folders being moved are excluded from the picker)
 - Moving into a locked path is rejected with a clear error message
 
 **Delete**
@@ -150,6 +157,8 @@ Admin users see a "Show hidden" checkbox in the toolbar. Checking it immediately
 ### 6.4 Download
 
 - Single file: direct download via browser
+- `/api/download` supports single HTTP Range requests (`206 Partial Content`, `Accept-Ranges: bytes`), so `<video preload="metadata">` thumbnails fetch only the metadata bytes and the preview player can seek without downloading the whole file. Multi-range requests fall back to the full file; out-of-bounds ranges return `416`
+- The `file_downloaded` audit event is logged for full downloads and for the first chunk (byte 0) of a streamed playback — not for every subsequent seek request
 - Folder as ZIP: server compresses the folder on the fly and streams it to the browser; this feature is optional and can be disabled via configuration
 
 ### 6.5 In-Browser Preview
@@ -214,20 +223,21 @@ The service announces itself on the local network using mDNS (via the `zeroconf`
 
 ### 7.1 UI Theme
 
-The interface uses a dark color scheme by default:
+The interface ships with **light and dark themes**. The initial theme follows the OS preference (`prefers-color-scheme`); a toggle button in the topbar switches themes, and the choice is persisted in `localStorage` (`oakfiles-theme`). The saved theme is applied by an inline script before first paint to avoid flashing.
 
-| Token               | Value     | Usage                              |
-|---------------------|-----------|------------------------------------|
-| `--color-bg`        | `#0f1117` | Page background                    |
-| `--color-surface`   | `#1a1d27` | Cards, toolbar, table background   |
-| `--color-border`    | `#2e3144` | Dividers, input borders            |
-| `--color-text`      | `#e2e4ed` | Primary text                       |
-| `--color-muted`     | `#8b90a7` | Secondary / hint text              |
-| `--color-primary`   | `#6c8ef5` | Links, buttons, focus rings        |
-| `--color-danger`    | `#f05252` | Destructive actions, error states  |
-| `--color-success`   | `#34d399` | Active / success indicators        |
+| Token               | Light     | Dark      | Usage                              |
+|---------------------|-----------|-----------|------------------------------------|
+| `--color-bg`        | `#f4f5fa` | `#0f1117` | Page background                    |
+| `--color-surface`   | `#ffffff` | `#1a1d27` | Cards, toolbar, table background   |
+| `--color-surface-2` | `#eef0f7` | `#232738` | Subtle fills, hover states         |
+| `--color-border`    | `#e2e4ef` | `#2e3144` | Dividers, input borders            |
+| `--color-text`      | `#1d2030` | `#e2e4ed` | Primary text                       |
+| `--color-muted`     | `#6b7089` | `#8b90a7` | Secondary / hint text              |
+| `--color-primary`   | `#5b7cfa` | `#6c8ef5` | Links, buttons, focus rings        |
+| `--color-danger`    | `#e0444a` | `#f05252` | Destructive actions, error states  |
+| `--color-success`   | `#1da575` | `#34d399` | Active / success indicators        |
 
-All colors are defined as CSS custom properties in `static/css/main.css` under `:root`, making a future light-mode or user-selectable theme straightforward to add.
+All colors are defined as CSS custom properties in `static/css/main.css` — light values under `:root`, dark overrides under `[data-theme="dark"]`.
 
 ### 7.2 Responsiveness
 
@@ -242,7 +252,7 @@ Touch targets must be at minimum 44×44px. No horizontal scrolling on mobile.
 
 - Directory listings for up to 10,000 items must render in under 2 seconds on the local network
 - File streaming must not buffer the entire file in memory (use chunked/streaming responses)
-- ZIP folder download must stream on the fly without writing the archive to disk first
+- ZIP folder download must stream on the fly without writing the archive to disk first, using constant memory (files compressed in chunks, never fully buffered). ZIP64 is enabled, so archives and individual members above 4 GB are supported
 
 ### 7.4 Security
 
@@ -271,7 +281,7 @@ No OS-specific code paths outside of the locked-path list and the service instal
 | Language           | Python 3.11+                                            |
 | Web framework      | FastAPI                                                 |
 | ASGI server        | Uvicorn                                                 |
-| Frontend           | HTML + CSS (responsive) + vanilla JS or HTMX            |
+| Frontend           | HTML (Jinja2) + CSS (responsive, no build step) + vanilla JS |
 | Session storage    | Server-side (in-memory or SQLite-backed)                |
 | Database           | SQLite (users, sessions, audit log)                     |
 | Password hashing   | `bcrypt` (direct, `>=4.0.0`)                            |
