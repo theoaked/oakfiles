@@ -14,3 +14,9 @@ zip_max_size_mb = 2048
 
 [security]
 bcrypt_cost = 12
+
+[media]
+# Transcode browser-incompatible video (AVI, MKV, WMV, …) to MP4 on the fly so
+# it plays inline instead of forcing a download. Requires ffmpeg installed.
+transcode_enabled = true
+ffmpeg_path = ""   # empty = use "ffmpeg" found on PATH

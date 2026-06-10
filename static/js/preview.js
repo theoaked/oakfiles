@@ -1,14 +1,24 @@
+// Video the browser plays natively vs. formats the server transcodes to MP4
+// on the fly (via /api/stream). Both open in the video player.
+const NATIVE_VIDEO = ['mp4','webm','ogg','mov','m4v'];
+const TRANSCODE_VIDEO = ['avi','mkv','wmv','flv','mpg','mpeg','m2ts','mts',
+                         'ts','3gp','vob','divx','asf','rm','rmvb','ogv'];
+
 const PREVIEW_TYPES = {
   image: ['jpg','jpeg','png','gif','webp','svg','bmp'],
-  video: ['mp4','webm','ogg'],
+  video: [...NATIVE_VIDEO, ...TRANSCODE_VIDEO],
   audio: ['mp3','wav','flac','oga'],
   pdf:   ['pdf'],
   text:  ['txt','md','json','xml','csv','yaml','yml','py','js','ts','html','css',
            'java','c','cpp','cs','go','rb','rs','sh','bat','ini','toml','sql'],
 };
 
+function fileExtOf(filename) {
+  return filename.split('.').pop().toLowerCase();
+}
+
 function getPreviewType(filename) {
-  const ext = filename.split('.').pop().toLowerCase();
+  const ext = fileExtOf(filename);
   for (const [type, exts] of Object.entries(PREVIEW_TYPES)) {
     if (exts.includes(ext)) return type;
   }
@@ -37,7 +47,9 @@ function openPreview(path, name, type) {
 
   modal.hidden = false;
 
-  const url = '/api/download?path=' + encodeURIComponent(path);
+  // inline=1 serves the file with `Content-Disposition: inline` so browsers
+  // (notably iOS Safari) render it in place instead of forcing a download.
+  const url = '/api/download?path=' + encodeURIComponent(path) + '&inline=1';
 
   if (type === 'image') {
     const img = document.createElement('img');
@@ -48,10 +60,25 @@ function openPreview(path, name, type) {
     content.appendChild(img);
 
   } else if (type === 'video') {
+    const needsTranscode = TRANSCODE_VIDEO.includes(fileExtOf(name));
     const video = document.createElement('video');
-    video.src = url;
+    // Browser-incompatible formats are transcoded to MP4 server-side; native
+    // ones stream directly with Range support so seeking works.
+    video.src = needsTranscode
+      ? '/api/stream?path=' + encodeURIComponent(path)
+      : url;
     video.controls = true;
     video.autoplay = false;
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+    video.preload = needsTranscode ? 'auto' : 'metadata';
+    video.onerror = () => {
+      const msg = needsTranscode
+        ? 'Could not transcode this video. Is ffmpeg installed on the server? Use the Download link above.'
+        : 'Could not play this video. Use the Download link above.';
+      content.innerHTML = '<span class="preview-error">' + msg + '</span>';
+    };
     content.innerHTML = '';
     content.appendChild(video);
 

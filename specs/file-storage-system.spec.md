@@ -158,6 +158,7 @@ Admin users see a "Show hidden" checkbox in the toolbar. Checking it immediately
 
 - Single file: direct download via browser
 - `/api/download` supports single HTTP Range requests (`206 Partial Content`, `Accept-Ranges: bytes`), so `<video preload="metadata">` thumbnails fetch only the metadata bytes and the preview player can seek without downloading the whole file. Multi-range requests fall back to the full file; out-of-bounds ranges return `416`
+- `/api/download` accepts an optional `inline=1` query parameter that serves the file with `Content-Disposition: inline` instead of `attachment`. Previews and media thumbnails use it so browsers (notably iOS Safari) play/render the file in place rather than forcing a download; the explicit Download action omits it to keep the save-to-disk behavior
 - The `file_downloaded` audit event is logged for full downloads and for the first chunk (byte 0) of a streamed playback — not for every subsequent seek request
 - Folder as ZIP: server compresses the folder on the fly and streams it to the browser; this feature is optional and can be disabled via configuration
 
@@ -168,12 +169,21 @@ Supported preview types opened in a modal or inline panel:
 | Type              | Formats                              |
 |-------------------|--------------------------------------|
 | Images            | JPG, PNG, GIF, WEBP, SVG, BMP        |
-| Video             | MP4, WEBM, OGG                       |
+| Video (native)    | MP4, WEBM, OGG, MOV, M4V             |
+| Video (transcoded)| AVI, MKV, WMV, FLV, MPG/MPEG, M2TS/MTS, TS, 3GP, VOB, DIVX, ASF, RM/RMVB, OGV |
 | Audio             | MP3, OGG, WAV, FLAC                  |
 | PDF               | PDF (browser native viewer)          |
 | Plain text / code | TXT, MD, JSON, XML, CSV, YAML, and common source code extensions |
 
 Files not in this list are downloaded directly.
+
+#### Video transcoding
+
+Browsers cannot decode many video containers/codecs (AVI/Xvid, MKV, WMV, …) in a `<video>` element — they fall back to forcing a download. For these formats the preview player points at `GET /api/stream?path=...`, which transcodes the file to H.264/AAC **fragmented MP4** on the fly with `ffmpeg` and streams it inline (`Content-Disposition: inline`), so it plays in place — including on iOS Safari — without a full download.
+
+- Live transcoding is a single forward stream: **no seeking** and no Range support (`Accept-Ranges: none`, no `Content-Length`). Native formats keep full Range/seek support via `/api/download`.
+- Requires `ffmpeg` on the server. Controlled by the `[media]` config: `transcode_enabled` (default `true`) and `ffmpeg_path` (empty = look up `ffmpeg` on `PATH`). When transcoding is disabled the endpoint returns `403`; when `ffmpeg` is missing it returns `503`; non-transcodable paths return `415`. In all failure cases the preview surfaces an error with the Download link.
+- A `file_streamed` audit event is logged when a transcoded stream starts.
 
 ### 6.6 Search
 
@@ -195,6 +205,7 @@ Records the following events with timestamp (UTC), username, source IP, and rele
 | Logout             | Username, IP                                  |
 | Session expiry     | Username                                      |
 | File downloaded    | File path, size                               |
+| File streamed      | File path (transcoded video playback)         |
 | File uploaded      | File path, size                               |
 | File deleted       | File path (file or folder + item count)       |
 | File renamed       | Old path → new path                           |
@@ -332,7 +343,8 @@ bcrypt_cost = 12
 |--------|------------------|--------------------------------------------------------------------------|
 | GET    | `/api/ls`        | List directory contents (`?path=...&show_hidden=false`)                  |
 | GET    | `/api/search`    | Search filenames (`?q=...&path=...&show_hidden=false`)                   |
-| GET    | `/api/download`  | Download a file (`?path=...`)                                            |
+| GET    | `/api/download`  | Download a file (`?path=...`); `?inline=1` serves with `Content-Disposition: inline` |
+| GET    | `/api/stream`    | Transcode a browser-incompatible video to MP4 and stream it inline (`?path=...`) |
 | GET    | `/api/zip`       | Download folder as ZIP (`?path=...`)                                     |
 
 `show_hidden` defaults to `false`; setting it to `true` is only honoured for admin sessions — the server silently resets it to `false` for readonly users.

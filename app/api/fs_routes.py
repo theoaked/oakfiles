@@ -8,6 +8,7 @@ import aiofiles
 from app.core.paths import resolve_safe_path
 from app.core.fs import list_directory, search_files, get_file_mimetype, EntryInfo, SearchResult
 from app.core.zip_stream import zip_folder_stream, check_zip_size
+from app.core.transcode import is_transcodable, resolve_ffmpeg, transcode_stream
 from app.core.audit import log_event
 from app.auth.middleware import _client_ip
 
@@ -102,7 +103,7 @@ async def _range_stream(path: Path, start: int, end: int, chunk_size: int = 1024
 
 
 @router.get("/download")
-async def download(request: Request, path: str):
+async def download(request: Request, path: str, inline: bool = False):
     config = request.app.state.config
     db = request.app.state.db
     safe = resolve_safe_path(path, config)
@@ -129,6 +130,9 @@ async def download(request: Request, path: str):
         ip = _client_ip(request)
         log_event(db, user["username"], ip, "file_downloaded", {"path": str(safe), "size": size})
 
+    # Inline disposition lets browsers (notably iOS Safari) play media in a
+    # <video>/<audio> element instead of forcing a download. Used by previews.
+    disposition = "inline" if inline else "attachment"
     mime = get_file_mimetype(safe)
     if rng is None:
         return FileResponse(
@@ -136,6 +140,7 @@ async def download(request: Request, path: str):
             media_type=mime,
             filename=safe.name,
             headers={"Accept-Ranges": "bytes"},
+            content_disposition_type=disposition,
         )
 
     start, end = rng
@@ -147,7 +152,46 @@ async def download(request: Request, path: str):
             "Accept-Ranges": "bytes",
             "Content-Range": f"bytes {start}-{end}/{size}",
             "Content-Length": str(end - start + 1),
-            "Content-Disposition": f'attachment; filename="{safe.name}"',
+            "Content-Disposition": f'{disposition}; filename="{safe.name}"',
+        },
+    )
+
+
+@router.get("/stream")
+async def stream(request: Request, path: str):
+    """Transcode a browser-incompatible video to MP4 and stream it inline.
+
+    Used by the preview player for formats `<video>` cannot decode (AVI, MKV,
+    WMV, …). Live transcoding does not support seeking or Range requests.
+    """
+    config = request.app.state.config
+    db = request.app.state.db
+    safe = resolve_safe_path(path, config)
+
+    if not safe.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    if not safe.is_file():
+        raise HTTPException(status_code=400, detail="Path is not a file")
+    if not config.media.transcode_enabled:
+        raise HTTPException(status_code=403, detail="Transcoding is disabled")
+    if not is_transcodable(safe):
+        raise HTTPException(status_code=415, detail="Format is not transcodable")
+
+    ffmpeg = resolve_ffmpeg(config.media.ffmpeg_path)
+    if not ffmpeg:
+        raise HTTPException(status_code=503, detail="ffmpeg is not available on the server")
+
+    user = request.state.user
+    ip = _client_ip(request)
+    log_event(db, user["username"], ip, "file_streamed", {"path": str(safe)})
+
+    return StreamingResponse(
+        transcode_stream(safe, ffmpeg),
+        media_type="video/mp4",
+        headers={
+            "Content-Disposition": f'inline; filename="{safe.stem}.mp4"',
+            "Cache-Control": "no-store",
+            "Accept-Ranges": "none",
         },
     )
 

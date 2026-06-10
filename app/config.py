@@ -38,11 +38,20 @@ class SecurityConfig:
 
 
 @dataclass
+class MediaConfig:
+    # Transcode browser-incompatible video (AVI, MKV, …) to MP4 on the fly.
+    transcode_enabled: bool = True
+    # ffmpeg executable; empty = look up "ffmpeg" on PATH.
+    ffmpeg_path: str = ""
+
+
+@dataclass
 class AppConfig:
     server: ServerConfig = field(default_factory=ServerConfig)
     mdns: MdnsConfig = field(default_factory=MdnsConfig)
     paths: PathsConfig = field(default_factory=PathsConfig)
     security: SecurityConfig = field(default_factory=SecurityConfig)
+    media: MediaConfig = field(default_factory=MediaConfig)
 
 
 def load_config(path: Path = CONFIG_PATH) -> AppConfig:
@@ -58,6 +67,7 @@ def load_config(path: Path = CONFIG_PATH) -> AppConfig:
     mdns_raw = raw.get("mdns", {})
     paths_raw = raw.get("paths", {})
     security_raw = raw.get("security", {})
+    media_raw = raw.get("media", {})
 
     roots_raw = paths_raw.get("roots", [])
     if not roots_raw:
@@ -94,5 +104,9 @@ def load_config(path: Path = CONFIG_PATH) -> AppConfig:
         ),
         security=SecurityConfig(
             bcrypt_cost=security_raw.get("bcrypt_cost", 12),
+        ),
+        media=MediaConfig(
+            transcode_enabled=media_raw.get("transcode_enabled", True),
+            ffmpeg_path=media_raw.get("ffmpeg_path", ""),
         ),
     )

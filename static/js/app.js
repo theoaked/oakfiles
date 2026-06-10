@@ -142,14 +142,16 @@ const THUMB_VID_EXTS = new Set(['mp4', 'webm', 'ogg', 'mov', 'm4v']);
 
 function mediaHtml(item) {
   const ext = fileExt(item.name);
-  const url = '/api/download?path=' + encodeURIComponent(item.path);
+  // inline=1 → `Content-Disposition: inline` so iOS Safari renders the media
+  // in place instead of forcing a download.
+  const url = '/api/download?path=' + encodeURIComponent(item.path) + '&inline=1';
   if (THUMB_IMG_EXTS.has(ext)) {
     return `<img loading="lazy" decoding="async" src="${url}" alt="">`;
   }
   if (THUMB_VID_EXTS.has(ext)) {
     // No src yet: loaded on demand by the IntersectionObserver so a folder
     // full of videos doesn't saturate the browser's connections to the host.
-    return `<video preload="metadata" muted playsinline data-src="${url}#t=0.1"></video>`;
+    return `<video preload="metadata" muted playsinline webkit-playsinline data-src="${url}#t=0.1"></video>`;
   }
   return iconHtml(fileKind(item));
 }
